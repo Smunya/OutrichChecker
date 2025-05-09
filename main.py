@@ -1,40 +1,17 @@
 # Встановлення необхідних бібліотек тільки якщо вони відсутні
-import importlib.util
 import sys
-import subprocess
 
-# Автоматично встановлюємо відсутні пакети
-def install_missing_packages(packages):
-    for pkg in packages:
-        spec = importlib.util.find_spec(pkg)
-        if spec is None:
-            print(f"Встановлюємо {pkg}...")
-            try:
-                # Використовуємо subprocess для надійного встановлення
-                subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
-                print(f"{pkg} встановлено успішно.")
-            except subprocess.CalledProcessError as e:
-                print(f"Помилка встановлення {pkg}: {e}", file=sys.stderr)
-            except Exception as e:
-                print(f"Невідома помилка під час встановлення {pkg}: {e}", file=sys.stderr)
+# Імпорти для роботи програми
+import pandas
+import gspread
+import requests
+import importlib.util
 
-# Використовуємо try-except для імпорту в середовищі Colab
-COLAB_ENV = False # За замовчуванням вважаємо, що не в Colab
-try:
-    # Імпорти для Colab
-    from google.colab import auth
-    from google.auth import default
-    from IPython.utils.io import capture_output
-    from IPython.display import clear_output
-    COLAB_ENV = True
-    print("Запущено в середовищі Google Colab.")
-    install_missing_packages(["gspread", "pandas", "requests", "beautifulsoup4", "chardet"])
-except ImportError:
-    print("Запущено поза середовищем Google Colab. Перевірка наявності пакетів...")
-    # Тут можна додати альтернативні імпорти або логіку для локального запуску, якщо потрібно
-    # Наприклад, встановлення пакетів, якщо вони потрібні локально:
-    install_missing_packages(["gspread", "pandas", "requests", "beautifulsoup4", "chardet"])
-    pass # Наразі нічого не робимо, якщо не в Colab
+# Імпорти для Colab
+from google.colab import auth
+from google.auth import default
+from IPython.utils.io import capture_output
+from IPython.display import clear_output
 
 # Імпорт основних функцій з модулів
 from gsheet_utils import check_sheet_structure, display_sheet_validation_results, update_sheet_with_results
@@ -45,20 +22,14 @@ from request_processor import check_status_code_requests
 #
 def main(google_sheet, valueserp_api_key=None):
     """Головна функція, що запускає перевірку та виводить результати."""
-    # Якщо в Colab, авторизуємося
-    if COLAB_ENV:
-        try:
-            print("Авторизуємося в Google (Colab)...")
-            auth.authenticate_user()
-            print("Авторизація в Google пройшла успішно.")
-        except Exception as auth_e:
-             print(f"Помилка авторизації в Google: {auth_e}", file=sys.stderr)
-             return # Зупиняємо виконання, якщо авторизація не вдалась
-
-    # Якщо не в Colab, ми припускаємо, що автентифікація gspread оброблена (напр., через gcloud auth application-default login)
-    elif not COLAB_ENV:
-        print("Запуск поза Colab. Переконайтеся, що автентифікація gspread налаштована.")
-        # Тут не потрібно явно викликати auth.authenticate_user()
+    # Авторизуємося в Google через Colab
+    try:
+        print("Авторизуємося в Google (Colab)...")
+        auth.authenticate_user()
+        print("Авторизація в Google пройшла успішно.")
+    except Exception as auth_e:
+        print(f"Помилка авторизації в Google: {auth_e}", file=sys.stderr)
+        return # Зупиняємо виконання, якщо авторизація не вдалась
 
     # Перевірка наявності API ключа для ValueSerp
     if not valueserp_api_key:
@@ -121,7 +92,7 @@ def main(google_sheet, valueserp_api_key=None):
         update_sheet_with_results(result["worksheet"], check_results)
 
 # Перевірка Google таблиці
-google_sheet = "https://docs.google.com/spreadsheets/d/1cC54bS7xl1yTP9uE4QTnTHaliuiGbjIdsXjFkRaYStg/edit?pli=1&gid=0#gid=0" # @param {"type":"string"}
+google_sheet = "" # @param {"type":"string"}
 
 # Запуск головної функції
 if __name__ == "__main__":
