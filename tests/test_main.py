@@ -1,35 +1,8 @@
 import sys
-import importlib.util
-import subprocess
 import pytest
 
 import main
-from main import install_missing_packages, main as run_main
-
-# Тест для install_missing_packages: коли пакет відсутній, має викликатись pip install
-def test_install_missing_packages_installs_when_missing(monkeypatch, capsys):
-    # Імітуємо, що пакету нема
-    monkeypatch.setattr(importlib.util, 'find_spec', lambda name: None)
-    calls = []
-    def fake_check_call(cmd):
-        # Перевіряємо, що формування команди правильне
-        assert cmd[0] == sys.executable
-        assert cmd[1:] == ['-m', 'pip', 'install', 'pkg1']
-        calls.append(cmd)
-    monkeypatch.setattr(subprocess, 'check_call', fake_check_call)
-
-    install_missing_packages(['pkg1'])
-    captured = capsys.readouterr()
-    assert "Встановлюємо pkg1..." in captured.out
-    assert "pkg1 встановлено успішно." in captured.out
-    assert calls, "pip install не був викликаний"
-
-# Тест для install_missing_packages: коли пакет присутній, нічого не виконується
-def test_install_missing_packages_skips_when_present(monkeypatch, capsys):
-    monkeypatch.setattr(importlib.util, 'find_spec', lambda name: object())
-    install_missing_packages(['pkg1'])
-    captured = capsys.readouterr()
-    assert "Встановлюємо" not in captured.out
+from main import main as run_main
 
 # Допоміжний клас для результатів check_sheet_structure
 class DummyResult:
@@ -45,12 +18,12 @@ def test_main_no_success(monkeypatch, capsys):
     monkeypatch.setattr(main, 'display_sheet_validation_results', lambda x: None)
     # Захищаємо від небажаного виклику
     monkeypatch.setattr(main, 'update_sheet_with_results', lambda w, r: (_ for _ in ()).throw(Exception("Should not be called")))
-    # Примусово поза Colab
-    monkeypatch.setattr(main, 'COLAB_ENV', False)
+    # Імітуємо auth без помилок
+    monkeypatch.setattr(main.auth, 'authenticate_user', lambda: None)
 
     run_main('test_sheet')
     captured = capsys.readouterr()
-    assert "Запуск поза Colab" in captured.out
+    assert "Авторизація в Google пройшла успішно" in captured.out
 
 # Тест для main: перевірка успішного флоу з одним рядком
 def test_main_success_flow(monkeypatch):
@@ -66,7 +39,8 @@ def test_main_success_flow(monkeypatch):
     monkeypatch.setattr(main, 'check_status_code_requests', lambda lst, api_key=None: dummy_check_results)
     update_calls = []
     monkeypatch.setattr(main, 'update_sheet_with_results', lambda ws, res: update_calls.append((ws, res)))
-    monkeypatch.setattr(main, 'COLAB_ENV', False)
+    # Імітуємо auth без помилок
+    monkeypatch.setattr(main.auth, 'authenticate_user', lambda: None)
 
     run_main('test_sheet')
     assert update_calls == [(dummy_ws, dummy_check_results)]
@@ -83,7 +57,8 @@ def test_main_skips_short_rows(monkeypatch, capsys):
     monkeypatch.setattr(main, 'display_sheet_validation_results', lambda x: None)
     monkeypatch.setattr(main, 'check_status_code_requests', lambda lst, api_key=None: [])
     monkeypatch.setattr(main, 'update_sheet_with_results', lambda ws, res: None)
-    monkeypatch.setattr(main, 'COLAB_ENV', False)
+    # Імітуємо auth без помилок
+    monkeypatch.setattr(main.auth, 'authenticate_user', lambda: None)
 
     run_main('test_sheet')
     captured = capsys.readouterr()
